@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Two-Page Viewer</title>
+    <link rel="stylesheet" href="styles/page-styles.css">
+</head>
+
+<body>
+    <h1>PDF Two-Page Viewer</h1>
+    <h1>Page View</h1>
+    <div id="btn"><a href="scroll.html"><button>Scroll View</button></a></div>
+    <div id="controls">
+        <button id="prev">Previous</button>
+        <span>Zoom:
+            <button id="zoomOut">-</button>
+            <span id="zoomLevel">100%</span>
+            <button id="zoomIn">+</button>
+        </span>
+        <button id="next">Next</button>
+        <div id="upload-container">
+            <p>Click to choose a PDF file or drag and drop it here</p>
+            <input type="file" id="file-input" accept="application/pdf" style="display: none;">
+        </div>
+    </div>
+    <div id="pdf-viewer"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.15.349/pdf.min.js"></script>
+    <script>
+        const uploadContainer = document.getElementById("upload-container");
+        const fileInput = document.getElementById("file-input");
+        const pdfViewer = document.getElementById("pdf-viewer");
+        const prevButton = document.getElementById("prev");
+        const nextButton = document.getElementById("next");
+        const zoomInButton = document.getElementById("zoomIn");
+        const zoomOutButton = document.getElementById("zoomOut");
+        const zoomLevelDisplay = document.getElementById("zoomLevel");
+
+        let pdfDoc = null;
+        let currentPage = 1;
+        let zoomLevel = 1.0;
+        let currentY;
+        
+        let startX = 0;
+        let endX = 0;
+
+        uploadContainer.addEventListener("click", () => fileInput.click());
+
+        fileInput.addEventListener("change", async (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const fileURL = URL.createObjectURL(file);
+                pdfDoc = await pdfjsLib.getDocument(fileURL).promise;
+                emptyPdf = await pdfjsLib.getDocument("assets/empty.pdf").promise;
+                currentPage = 1;
+                renderPages();
+            }
+        });
+
+        prevButton.addEventListener("click", () => {
+            if (currentPage >= 0 ) {
+                currentPage -= 2;
+                renderPages();
+            }
+        });
+
+        nextButton.addEventListener("click", () => {
+            currentY = window.scrollY;
+            if (currentPage + 2 <= pdfDoc.numPages) {
+                currentPage += 2;
+                renderPages();
+            }
+        });
+
+        zoomInButton.addEventListener("click", () => {
+            zoomLevel = Math.min(zoomLevel + 0.1, 2.0); // Limit max zoom to 2.0
+            zoomLevelDisplay.textContent = `${Math.round(zoomLevel * 100)}%`;
+            renderPages();
+        });
+
+        zoomOutButton.addEventListener("click", () => {
+            zoomLevel = Math.max(zoomLevel - 0.1, 0.5); // Limit min zoom to 0.5
+            zoomLevelDisplay.textContent = `${Math.round(zoomLevel * 100)}%`;
+            renderPages();
+        });
+
+        async function renderPages() {
+            pdfViewer.innerHTML = ""; // Clear the viewer
+
+            if (currentPage <= 1) {
+                let canvas1 = document.createElement("canvas");
+                let ctx1 = canvas1.getContext("2d");
+                let page1 = await emptyPdf.getPage(1);
+                let viewport1 = page1.getViewport({ scale: zoomLevel });
+                canvas1.height = viewport1.height;
+                canvas1.width = viewport1.width;
+
+                let renderContext1 = {
+                    canvasContext: ctx1,
+                    viewport: viewport1,
+                };
+                await page1.render(renderContext1).promise;
+                pdfViewer.appendChild(canvas1);
+
+                canvas1 = document.createElement("canvas");
+                ctx1 = canvas1.getContext("2d");
+                page1 = await pdfDoc.getPage(1);
+                viewport1 = page1.getViewport({ scale: zoomLevel });
+                canvas1.height = viewport1.height;
+                canvas1.width = viewport1.width;
+
+                renderContext1 = {
+                    canvasContext: ctx1,
+                    viewport: viewport1,
+                };
+                await page1.render(renderContext1).promise;
+                pdfViewer.appendChild(canvas1);
+
+                currentPage = 0;
+
+            } else {
+                for (let i = currentPage; i < currentPage + 2 && i <= pdfDoc.numPages; i++) {
+                    const canvas = document.createElement("canvas");
+                    const ctx = canvas.getContext("2d");
+                    const page = await pdfDoc.getPage(i);
+                    const viewport = page.getViewport({ scale: zoomLevel });
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+
+                    const renderContext = {
+                        canvasContext: ctx,
+                        viewport: viewport,
+                    };
+                    await page.render(renderContext).promise;
+                    pdfViewer.appendChild(canvas);
+                }
+            }
+            window.scrollTo(0, currentY);
+        }
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "ArrowLeft") {
+                prevButton.click();
+            } else if (event.key === "ArrowRight") {
+                nextButton.click();
+            }
+        });
+
+    /*    document.addEventListener("touchstart", (event) => {
+            startX = event.touches[0].clientX;
+        });
+
+        document.addEventListener("touchend", (event) => {
+            endX = event.changedTouches[0].clientX;
+
+            if (startX - endX > 50) {  //Swipe left
+                nextButton.click();
+            }
+
+            if (endX - startX > 50) { // Swipe Right
+                prevButton.click();
+            }
+
+        });  */
+
+    </script>
+</body>
+
+</html>

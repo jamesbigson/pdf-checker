@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Two-Page Viewer</title>
+    <link rel="stylesheet" href="styles/scroll-style.css">
+</head>
+
+<body>
+    <h1>PDF Two-Page Viewer</h1>
+    <h1>Scroll View</h1>
+    <div id="btn"><a href="index.html"><button>Page View</button></a></div>
+    <div id="controls">
+    <span>Zoom:
+        <button id="zoomOut">-</button>
+        <span id="zoomLevel">100%</span>
+        <button id="zoomIn">+</button>
+    </span>
+</div>
+    <div id="upload-container">
+        <p>Click to choose a PDF file or drag and drop it here</p>
+        <input type="file" id="file-input" accept="application/pdf" style="display: none;">
+    </div>
+    <div id="pdf-viewer"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.15.349/pdf.min.js"></script>
+    <script>
+        const uploadContainer = document.getElementById("upload-container");
+        const fileInput = document.getElementById("file-input");
+        const pdfViewer = document.getElementById("pdf-viewer");
+        const zoomInButton = document.getElementById("zoomIn");
+        const zoomOutButton = document.getElementById("zoomOut");
+        const zoomLevelDisplay = document.getElementById("zoomLevel");
+
+        let pdfDoc = null;
+        let zoomLevel = 1.0;
+        let StringUrl = '';
+
+        uploadContainer.addEventListener("click", () => fileInput.click());
+
+        fileInput.addEventListener("change", async (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const fileURL = URL.createObjectURL(file);
+                StringUrl = fileURL;
+                pdfDoc = await pdfjsLib.getDocument(fileURL).promise;
+                renderPDF();
+            }
+        });
+
+        zoomInButton.addEventListener("click", async () => {
+            zoomLevel = Math.min(zoomLevel + 0.1, 2.0); // Limit max zoom to 2.0
+            zoomLevelDisplay.textContent = `${Math.round(zoomLevel * 100)}%`;
+
+            pdfDoc = null;
+            pdfDoc = await pdfjsLib.getDocument(StringUrl).promise;
+            renderPDF();
+        });
+
+        zoomOutButton.addEventListener("click", async () => {
+            zoomLevel = Math.max(zoomLevel - 0.1, 0.5); // Limit min zoom to 0.5
+            zoomLevelDisplay.textContent = `${Math.round(zoomLevel * 100)}%`;
+
+            pdfDoc = null;
+            pdfDoc = await pdfjsLib.getDocument(StringUrl).promise;
+            renderPDF();
+        });
+
+        async function renderPDF() {
+            pdfViewer.innerHTML = ""; // Clear the viewer
+
+            //for 1st empty pages  
+            let canvas1 = createCanvas();
+
+            emptyPdf = await pdfjsLib.getDocument("assets/empty.pdf").promise;
+            const page = await emptyPdf.getPage(1);
+            const viewport = page.getViewport({ scale: zoomLevel });
+            canvas1.height = viewport.height;
+            canvas1.width = viewport.width;
+
+            const ctx = canvas1.getContext("2d");
+            const renderContext = {
+                canvasContext: ctx,
+                viewport: viewport,
+            };
+            await page.render(renderContext).promise;
+
+            //for 1st page  
+            let canvas2 = createCanvas();
+            if (1 <= pdfDoc.numPages) await renderPage(canvas2, 1);
+
+            const pageWrapper = document.createElement("div");
+            pageWrapper.style.display = "flex";
+            pageWrapper.style.justifyContent = "center";
+            pageWrapper.appendChild(canvas1);
+            if (1 <= pdfDoc.numPages) pageWrapper.appendChild(canvas2);
+
+            pdfViewer.appendChild(pageWrapper);
+
+
+
+            // For 2nd and other pages
+            for (let i = 2; i <= pdfDoc.numPages; i += 2) {
+                const canvas1 = createCanvas();
+                await renderPage(canvas1, i);
+
+                const canvas2 = createCanvas();
+                if (i + 1 <= pdfDoc.numPages) await renderPage(canvas2, i + 1);
+
+                const pageWrapper = document.createElement("div");
+                pageWrapper.style.display = "flex";
+                pageWrapper.style.justifyContent = "center";
+                pageWrapper.appendChild(canvas1);
+                if (i + 1 <= pdfDoc.numPages) pageWrapper.appendChild(canvas2);
+
+                pdfViewer.appendChild(pageWrapper);
+            }
+        }
+
+        function createCanvas() {
+            const canvas = document.createElement("canvas");
+            canvas.width = 600; // Set canvas width
+            canvas.style.border = "1px solid #ccc";
+            return canvas;
+        }
+
+        async function renderPage(canvas, pageNumber) {
+            const page = await pdfDoc.getPage(pageNumber);
+            const viewport = page.getViewport({ scale: zoomLevel });
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            const ctx = canvas.getContext("2d");
+            const renderContext = {
+                canvasContext: ctx,
+                viewport: viewport,
+            };
+            await page.render(renderContext).promise;
+        }
+    </script>
+</body>
+
+</html>
